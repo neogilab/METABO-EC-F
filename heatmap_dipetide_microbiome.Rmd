@@ -1,0 +1,204 @@
+---
+title: "Dipeptide heatmap"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(ropls)
+library(ggplot2)
+library(reshape2)
+```
+
+```{r}
+source("improved_ropls.R")
+```
+
+## load data
+```{r}
+met <- read.csv("/home/flomik/Desktop/Code-PHD/Dipeptide/data/Microbiome_related_metabolites.csv")
+met <- as.vector(met$BIOCHEMICAL)
+
+data <- read.csv("/home/flomik/Desktop/Code-PHD/Dipeptide/data/normalized_data_fecal_metabolome.csv")
+```
+```{r}
+data$EC_6 <- NULL
+data$EC_14 <- NULL
+```
+
+```{r}
+met[!met %in% data$BIOCHEMICAL]
+```
+
+```{r}
+met <- c("indolepropionate","indoleacetate", "phenylacetate", "indole-3-carboxylate", "dimethylglycine", "ursodeoxycholate", "3b-hydroxy-5-cholenoic acid", "lithocholate", "glycoursodeoxycholate", "skatol", "indole")
+```
+
+```{r}
+data <- data[data$BIOCHEMICAL %in% met, ]
+```
+```{r}
+condition <- gsub("_.*", "",names(data)[-1])
+```
+
+```{r}
+rownames(data) <- data$BIOCHEMICAL
+data$BIOCHEMICAL <- NULL
+```
+
+```{r}
+metabolites <- rownames(data)
+```
+
+```{r}
+data <- data.frame(t(data), condition = condition)
+```
+
+```{r}
+names(data)
+```
+```{r}
+metabolites
+```
+
++ scale_x_discrete(labels=c("a" = "HC", "b" = "ART",
+                              "2" = "Dose 2"))
+```{r}
+for (i in 1:11){
+a <- ggplot(data, aes(condition, log2(data[, i]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", metabolites[i], ")"))+theme_grey()+
+  theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 3)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+  scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+ggsave(paste0("results/figures/boxplots_", metabolites[i], ".pdf"), height = 4, width = 4)
+}
+```
+
+```{r}
+list_1 <- c("indolepropionate", "indoleacetate","phenylacetate","indole-3-carboxylate","dimethylglycine")
+```
+
+```{r}
+list_2 <- c("indolepropionate", "indoleacetate","phenylacetate","indole.3.carboxylate","dimethylglycine", "condition")
+```
+
+```{r}
+data <- data[,names(data) %in% list_2]
+```
+
+```{r}
+data_2 <- melt(data, id.vars = "condition")
+```
+
+```{r}
+names(data_2)
+```
+
+```{r}
+  a <- ggplot(data_2, aes(condition, log2(value), fill = condition)) + geom_boxplot(lwd=1) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2.value"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 3)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+facet_grid(~ variable, scales='free', space="free") + # Boxplot fill color scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+ggsave(paste0("results/boxplots.pdf"), height = 4, width = 7)
+```
+
+```{r}
+list_boxplot <- list()
+
+for (i in 1:5){
+  a <- ggplot(data, aes(condition, log2(data[, i]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", list_1[i], ")"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 3)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+    scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+  print(a)
+  list_boxplot <- c(list_boxplot,a)
+ggsave(paste0("results/figures_2/boxplots_", list_1[i], ".pdf"), height = 4, width = 4)
+}
+```
+```{r}
+a <- ggplot(data, aes(condition, log2(data[, 1]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", list_1[1], ")"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 2)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+    scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+
+b <- ggplot(data, aes(condition, log2(data[, 2]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", list_1[2], ")"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 2)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+    scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+
+c <- ggplot(data, aes(condition, log2(data[, 3]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", list_1[3], ")"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 2)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+    scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+
+d <- ggplot(data, aes(condition, log2(data[, 4]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", list_1[4], ")"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 2)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+    scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+e <- ggplot(data, aes(condition, log2(data[, 5]), fill = condition)) + geom_boxplot(lwd=1.2) + theme(axis.text.x =element_text(colour="black"), axis.text.y = element_text(colour="black"))+ labs(x="Condition", y = paste0("log2(", list_1[5], ")"))+theme_grey()+
+    theme(legend.position="none",axis.text.x = element_text(), strip.text = element_text(), axis.title.x = element_text(face="bold"), axis.title.y = element_text(face="bold"))+ geom_jitter(shape=16, position=position_jitter(0.2),color = "black", size = 3)+scale_fill_manual(values=c("#FF8000", "#008000", "#990000"))+ # Boxplot fill color
+    scale_color_manual(values=c("#FF8000", "#008000", "#990000"))
+
+```
+
+```{r}
+gl <- c(a, b, c, d, e)
+```
+
+```{r}
+library(ggpubr)
+```
+
+```{r}
+pdf("boxplots_dipeptides.pdf", height = 6, width = 9)
+figure <- ggarrange(a, b, c, d, e, ncol = 3, nrow = 2)
+figure
+dev.off()
+```
+
+
+```{r}
+```
+```{r}
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(lattice)
+```
+
+```{r}
+grid.arrange(
+  grobs = gl,
+  widths = c(2, 1, 1),
+  layout_matrix = rbind(c(1, 2, 3),
+                        c(4, 5, NA))
+)
+```
+
+
+```{r}
+#position <- as.vector(data_2$BIOCHEMICAL[1:37])
+```
+```{r}
+library(viridis)
+```
+
+```{r}
+data_2$value[data_2$value > 10] <- 10
+```
++scale_fill_viridis()
+```{r}
+a <- ggplot(data_2, aes(y = BIOCHEMICAL, x = variable, fill = log2(1+value)))+ geom_tile()+ 
+  labs(title="", x="", y="", fill="")+facet_grid(~ condition, scales='free', space="free")+
+  scale_fill_viridis()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y = element_text(color = "black", size = 11, face = "plain"))
+ggsave("heatmap_dipeptide_metabolomics_microbiome.pdf", height = 12, width = 11)
+a
+```
+
+```{r}
+a <- ggplot(data_2, aes(y = forcats::fct_rev(metabolites_2), x = variable, fill = log2(1 + value)))+ geom_tile()+ 
+  labs(title="", x="", y="", fill="")+facet_grid(type ~ condition, scales='free', space="free")+
+  scale_fill_viridis()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y = element_text(color = "black", size = 11, face = "plain"))
+ggsave("results/figures/heatmap_EC_metabolomics.pdf", height = 12, width = 11)
+a
+```
+

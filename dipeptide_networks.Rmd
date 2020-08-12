@@ -1,0 +1,249 @@
+---
+title: "Parse dipeptide file output and produce Cytoscape output"
+output: html_notebook
+---
+
+
+1) separate EC/VP and EC/HC
+2) select metabolites with qvalue < 0.1 and pvalue <0.05
+3 Cytoscape input :
+Nodes :
+Node_1  Type Group_path Group_super_path
+metabolite met group_path
+path path path super_path
+superpath superpath no superpath
+
+Edges :
+Node_1 Node_2 Type
+meta   meta   meta-meta
+meta   path   path
+path   superpath super_path
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+# 1) separate EC/VP and EC/HC
+```{r}
+name_ana <- "dipeptide"
+anova_meta <- read.csv("/home/ujjwal/Desktop/Dipeptide/data/input_dipeptides.csv")
+```
+
+```{r}
+library(tidyverse)
+```
+
+## remove commas 
+```{r}
+#anova_meta <-anova_meta %>% mutate_all(funs(str_replace(., ",", ".")))
+#anova_meta <-anova_meta %>% mutate_all(funs(str_replace(., ",", ".")))
+```
+
+```{r}
+names(anova_meta)
+```
+
+```{r}
+EC_VP <-select(anova_meta, Biochemical.Name, Super.Pathway, Sub.Pathway, contains("VP"))
+EC_HC <-select(anova_meta, Biochemical.Name, Super.Pathway, Sub.Pathway, contains("HC"))
+```
+
+# 2) select metabolites with qvalue < 0.1 and pvalue <0.05
+```{r}
+EC_VP <- EC_VP[EC_VP$p.val.EC.VP. < 0.05,]
+EC_VP <- EC_VP[EC_VP$q.val.EC.VP. < 0.1,]
+```
+
+```{r}
+EC_HC <- EC_HC[EC_HC$p.val.EC.HC. < 0.05,]
+EC_HC <- EC_HC[EC_HC$q.val.EC.HC. < 0.1,]
+```
+
+```{r}
+EC_HC$sign <- NA
+EC_VP$sign <- NA
+```
+
+# attribute up or down according to logFC
+
+```{r}
+for (i in 1:nrow(EC_VP)){
+  if(EC_VP[i,4] > 1){
+    EC_VP[i,7] <- "pos"
+  }else{
+    EC_VP[i,7] <- "neg"
+  }
+}
+```
+
+```{r}
+for (i in 1:nrow(EC_HC)){
+  if(EC_HC[i,4] > 1){
+    EC_HC[i,7] <- "pos"
+  }else{
+    EC_HC[i,7] <- "neg"
+  }
+}
+```
+
+```{r}
+names(EC_HC)[4:6] <- c("FC", "pval", "qval")
+names(EC_VP)[4:6] <- c("FC", "pval", "qval")
+```
+
+#3) Build Cytoscape input
+
+Nodes :
+Node_1  Type Group_path Group_super_path
+metabolite met group_path FC pval qval sig 
+path path path super_path
+superpath superpath no superpath
+
+Edges :
+Node_1 Node_2 Type
+meta   meta   meta-meta
+meta   path   path
+path   superpath super_path
+
+
+## Metabolites
+```{r}
+name_ana <- "fec_met_EC_HC"
+table_nodes <- EC_HC
+```
+
+```{r}
+names(table_nodes)
+```
+```{r}
+names(table_nodes)[1:3] <- c("Node_1", "Grp_Super_Path", "Grp_Sub_Path")
+table_nodes$Type <-"met"
+```
+
+```{r}
+names(table_nodes)
+```
+## Sub pathways
+```{r}
+table_nodes_path <- select(table_nodes, Grp_Sub_Path, Grp_Super_Path)
+table_nodes_path <- table_nodes_path[!duplicated(table_nodes_path$Grp_Sub_Path),]
+```
+
+```{r}
+table_nodes_path <- data.frame(Node_1 = table_nodes_path$Grp_Sub_Path,
+                               Grp_Super_Path = table_nodes_path$Grp_Super_Path,
+                               Grp_Sub_Path = table_nodes_path$Grp_Sub_Path,
+                               FC = NA,
+                               pval = NA,
+                               qval = NA,
+                               sign = NA,
+                               Type = "sub_path")
+```
+
+
+## Super pathways
+```{r}
+table_nodes_super_path <- table_nodes_path$Grp_Super_Path
+table_nodes_super_path <- table_nodes_super_path[!duplicated(table_nodes_super_path)]
+length(table_nodes_super_path)
+```
+
+```{r}
+table_nodes_super_path <- data.frame(Node_1 = table_nodes_super_path,
+                               Grp_Super_Path = table_nodes_super_path,
+                               Grp_Sub_Path = NA,
+                               FC = NA,
+                               pval = NA,
+                               qval = NA,
+                               sign = NA,
+                               Type = "super_path")
+```
+
+```{r}
+table_genes <- table_nodes
+```
+
+## bind in one table
+
+```{r}
+table_nodes <- rbind(table_nodes, table_nodes_path, table_nodes_super_path)
+```
+
+```{r}
+path_nodes <- paste0("results/", name_ana,  "/", name_ana, "_table_nodes.txt")
+write.table(table_nodes, file = path_nodes, sep = "\t",
+            row.names = TRUE, col.names = NA)
+```
+
+# NB : merge string and table edge
+/home/ujjwal/Desktop/Dipeptide/results/fec_met_EC_VP/stitch_interactions_met_fec_EC_VP.tsv
+stitch <- read.delim("results/fec_met_EC_HC/stitch_interactions_metabolites_fecal:EC_HC.tsv")
+
+```{r}
+#stitch <- read.delim("results/fec_met_EC_VP/stitch_interactions_met_fec_EC_VP.tsv")
+stitch <- read.delim("results/fec_met_EC_HC/stitch_interactions_metabolites_fecal:EC_HC.tsv")
+```
+
+
+```{r}
+names(stitch)
+```
+Edges :
+Node_1 Node_2 Type
+meta   meta   meta-meta x
+meta   path   path
+path   superpath super_path x
+```{r}
+names(table_nodes_path)
+table_edges_path_superpath <- select(table_nodes_path, Node_1, Grp_Super_Path)
+table_edges_path_superpath$Group <- "path-super_path"
+```
+
+```{r}
+library(dplyr)
+string <- select(stitch, X.node1, node2, node1_string_internal_id)
+names(string) <-  c("Node_1", "Node_2", "Group") 
+string$Group <- "met-met"
+```
+
+```{r}
+names(table_nodes)
+table_edges_path_meta <- select(table_genes, Node_1, Grp_Sub_Path)
+table_edges_path_meta$Group <- "met-path"
+names(table_edges_path_meta)
+```
+
+```{r}
+names(table_edges_path_meta)[2] <-"Node_2"
+names(table_edges_path_superpath)[2]<-"Node_2"
+names(string)
+```
+
+```{r}
+overlap <- string[string$Node_1 %in% table_genes$Node_1,]
+overlap <- overlap[overlap$Node_2 %in% table_genes$Node_1,]
+```
+
+```{r}
+table_edges <- rbind(overlap, table_edges_path_meta, table_edges_path_superpath)
+```
+
+```{r}
+head(table_edges)
+```
+```{r}
+head(table_nodes)
+```
+
+# save everyone
+```{r}
+path_edges <- paste0("results/", name_ana, "/", name_ana, "table_edges.txt")
+
+write.table(table_edges, file = path_edges, sep = "\t",
+            row.names = TRUE, col.names = NA)
+```
+
+
+
+

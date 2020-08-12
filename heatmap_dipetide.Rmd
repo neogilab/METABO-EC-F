@@ -1,0 +1,183 @@
+---
+title: "Dipeptide heatmap"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(ropls)
+library(ggplot2)
+library(reshape2)
+```
+
+```{r}
+source("improved_ropls.R")
+```
+
+## load data
+```{r}
+path <- read.csv("/home/flomik/Desktop/Code-PHD/Dipeptide/data/input_dipeptides.csv")
+names(path)[1] <- "BIOCHEMICAL"
+
+path <- select(path, BIOCHEMICAL, Super.Pathway, Sub.Pathway)
+
+path <- path[path$Super.Pathway == "Peptide",]
+path$Super.Pathway <- NULL
+
+data <- read.csv("/home/flomik/Desktop/Code-PHD/Dipeptide/data/normalized_data_fecal_metabolome.csv")
+```
+```{r}
+data$EC_6 <- NULL
+data$EC_14 <- NULL
+```
+
+```{r}
+condition <- gsub("_.*", "",names(data)[-1])
+```
+
+## PLS-DA
+```{r}
+met.data = t(as.matrix(data[,-1]))
+met.labels = condition
+```
+
+```{r}
+library(umap)
+```
+
+```{r}
+met.umap = umap(met.data)
+met.umap
+```
+
+```{r}
+data <- met.umap$data
+layout <- met.umap$layout
+
+data_umap <- cbind(data, layout)
+colnames(data_umap)[826:827] <- c("UMAP1", "UMAP2")
+data_umap <- data.frame(data_umap)
+```
+
+"#0080FF" ; ART
+"#A2C0D9" ; HC
+
+```{r}
+## to save as pdf
+#extrafont::loadfonts()
+data_umap %>% 
+  mutate(Condition = met.labels) %>%
+  ggplot(aes(UMAP1, UMAP2), color = Condition)+ geom_point(size = 3, alpha = 0.9, shape = 22, aes(fill = factor(condition), color = factor(condition)))+
+  stat_ellipse(aes(x=UMAP1, y=UMAP2,color=Condition), linetype = 2)+ scale_color_manual(name = "Condition", values = c("#FF8000", "#008000", "#990000"))+ scale_fill_manual(name = "Condition", values=c("#FF8000", "#008000", "#990000"))
+
+ggsave("results/umap_whole_dipeptide.pdf")
+```
+
+
+```{r}
+pdf("umap_plot.pdf")
+umap.plot(met.umap, as.factor(met.labels))
+dev.off()
+```
+
+```{r}
+x <- met.data
+y <- met.labels
+```
+
+```{r}
+# apply it
+#x_scaled <- scale(x)
+
+#2. unit-variance scalling
+
+path_fig <- paste0("Dipetide_PLS-DA.pdf")
+pdf(path_fig)
+met.plsda <- opls(x, y)
+dev.off()
+```
+```{r}
+ropls.plot(met.plsda, plottype = "score", xvar = "p1", yvar = "p2", hotelling = FALSE,
+  ellipse = TRUE, col.var = NULL, col.pca = NULL)
+ggsave("PLSDA_dipeptide_metabolomics.pdf", width = 4, height = 4)
+```
+
+## heatmap
+```{r}
+data <- merge(data, path, by = "BIOCHEMICAL")
+```
+```{r}
+subpath <- as.vector(unique(data$Sub.Pathway))
+```
+```{r}
+subpath <- subpath[c(2, 1, 3, 4)]
+```
+
+
+```{r}
+table(condition)
+```
+
+
+```{r}
+data_2 <- melt(data, id.vars = c("BIOCHEMICAL", "Sub.Pathway"))
+data_2$condition <- c(rep("EC",37*12), rep("VP",37*16),rep("HC", 37*12))
+```
+
+```{r}
+data_2$Sub.Pathway <- factor(data_2$Sub.Pathway,  levels = subpath)
+```
+
+```{r}
+#position <- as.vector(data_2$BIOCHEMICAL[1:37])
+```
+```{r}
+library(viridis)
+```
+
+```{r}
+max(data_2$value)
+```
+```{r}
+min(data_2$value)
+```
+```{r}
+#data_2$metabolites_2 <- factor(data_2$metabolites,  levels = list_metabolites)
+```
+
+```{r}
+#data_2$Sub.Pathway <- as.vector(data_2$Sub.Pathway)
+```
+```{r}
+#data_2$condition <- as.vector(data_2$condition)
+```
+
+
+```{r}
+data_2$value[data_2$value > 5] <- 5
+```
++scale_fill_viridis()
+```{r}
+a <- ggplot(data_2, aes(y = BIOCHEMICAL, x = variable, fill = log2(1+value)))+ geom_tile()+ 
+  labs(title="", x="", y="", fill="")+facet_grid(Sub.Pathway ~ condition, scales='free', space="free")+
+  scale_fill_viridis()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y = element_text(color = "black", size = 11, face = "plain"))
+ggsave("heatmap_dipeptide_metabolomics.pdf", height = 12, width = 11)
+a
+```
+
+```{r}
+a <- ggplot(data_2, aes(y = forcats::fct_rev(metabolites_2), x = variable, fill = log2(1 + value)))+ geom_tile()+ 
+  labs(title="", x="", y="", fill="")+facet_grid(type ~ condition, scales='free', space="free")+
+  scale_fill_viridis()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y = element_text(color = "black", size = 11, face = "plain"))
+ggsave("results/figures/heatmap_EC_metabolomics.pdf", height = 12, width = 11)
+a
+```
+
