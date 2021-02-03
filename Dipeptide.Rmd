@@ -1,0 +1,70 @@
+---
+title: "Dipeptide Microbiome codes"
+author: "Aswathy Narayanan"
+date: "November 11, 2020"
+output: pdf_document
+---
+
+
+## Pre-processing
+
+```{perl}
+trim_galore --length 30 -q 20 --paired --dont_gzip *_R1.fastq.gz *_R2.fastq.gz --gzip  #For adapter trimming & removing low quality reads
+
+```
+
+```{python}
+cutPrimers.py -r1 *_R1.fastq -r2 *_R2.fastq -pr15 primer1_R1.fa  -pr25 primer1_R2.fa -pr13 primer2_R1.fa -pr23 primer2_R2.fa -tr1 *_cutprimer_R1.fq -tr2 *_cutprimer_R2.fq -utr1 *_cutprimer_untrim_R1.fastq -utr2 *_cutprimer_untrim_R2.fastq -t 10  # Primer removal
+``` 
+
+
+## Barplot (Samples wise)
+
+```{r}
+library(ggplot2)
+library(reshape2)
+ec=read.delim("Permanova_EC.txt",check.names=FALSE)
+EC=melt(ec)
+colors=c("#cca6db","#ff93ac","#fff7a6","#ffdb58","#fc9c4d","#e2f4c7","#77aaff","#326ada","#d8d8d8")
+ggplot(EC, aes(fill=Genus, y=value, x=variable)) + geom_bar( stat="identity") + scale_fill_manual(value=colors)+ labs(x="Groups",y="Relative abundance")+ scale_x_discrete(expand=c(0,0)) +scale_y_continuous(expand=c(0,0))+ theme_classic()+ theme(axis.title.x=element_blank())+theme(axis.text.x=element_text(face="bold",angle=45)) + coord_fixed(20)
+hc=read.delim("Permanova_HC.txt",check.names=FALSE)
+HC=melt(hc)
+ggplot(HC, aes(fill=Genus, y=value, x=variable)) + geom_bar( stat="identity") + scale_fill_manual(value=colors)+ labs(x="Groups",y="Relative abundance")+ scale_x_discrete(expand=c(0,0)) +scale_y_continuous(expand=c(0,0))+ theme_classic()+ theme(axis.title.x=element_blank())+theme(axis.text.x=element_text(face="bold",angle=45)) + coord_fixed(20)
+vp=read.delim("Permanova_VP.txt",check.names=FALSE)
+VP=melt(vp)
+ggplot(VP, aes(fill=Genus, y=value, x=variable)) + geom_bar( stat="identity") + scale_fill_manual(value=colors)+ labs(x="Groups",y="Relative abundance")+ scale_x_discrete(expand=c(0,0)) +scale_y_continuous(expand=c(0,0))+ theme_classic()+ theme(axis.title.x=element_blank())+theme(axis.text.x=element_text(face="bold",angle=45)) + coord_fixed(20)
+```
+
+## Barplot (Group wise)
+
+```{r}
+library(ggplot2)
+library(reshape)
+genus<- read.delim("Genus.txt", check.names=FALSE)
+gen<-melt(genus)
+colors=c("#cca6db","#ff93ac","#fff7a6","#ffdb58","#fc9c4d","#e2f4c7","#77aaff","#326ada","#d8d8d8")
+Plot= ggplot(gen, aes(fill=Genus, y=value, x=variable))+ geom_bar( stat="identity")+ labs(x="Groups",
+y="Relative abundance")+ scale_x_discrete(expand=c(0,0)) + scale_y_continuous(expand=c(0,0))
+Plot + scale_fill_manual(values=colors)+ theme(axis.title.x=element_blank(),
+axis.text.x=element_text(face="bold"))
+```
+
+## Permanova analysis
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(vegan)
+Genus=read.delim("Genus_ECvsHC.txt",check.names=FALSE,row.names=1)
+meta=read.delim("meta.txt",check.names=FALSE)
+permanova <- adonis(t(Genus) ~ group,data = meta, permutations=99, method = "bray")
+print(as.data.frame(permanova$aov.tab)["group", "Pr(>F)"])
+dist <- vegdist(t(fam))
+anova(betadisper(dist, meta$group))
+coef <- coefficients(permanova)["group1",]
+top.coef <- coef[rev(order(abs(coef)))[1:20]]
+
+data=read.delim("Permanova_Genus_HCvsEC_codex.txt",check.names=FALSE) # for permanova plot
+ggplot(data=data, aes(x= factor(x, levels=unique(x)), y=Permanova_coefficients))+geom_bar(stat="identity", fill="#61300d")+coord_flip()+theme(axis.title.y=element_blank(), plot.margin = unit(c(3,3,3,3), "cm"))+ ggtitle("Elite Controller vs Healthy Control")
+```
+
